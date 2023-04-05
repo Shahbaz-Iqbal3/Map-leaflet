@@ -48,3 +48,11 @@
      height: 100vh; 
      flex-basis: 100%;
 }
+@media(max-width: 780px){
+     .container{
+          flex-direction: column;
+     }
+     .sidebar{
+          height: 40vh;
+     }
+}
