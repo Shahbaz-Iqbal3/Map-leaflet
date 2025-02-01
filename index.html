@@ -1,34 +1,159 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-     <meta charset="UTF-8">
-     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-     <!-- Google font -->
-     <link rel="preconnect" href="https://fonts.googleapis.com">
-     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
-     <!-- Leaflet css -->
-     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
-     integrity="sha256-kLaT2GOSpHechhsozzB+flnD+zUyjE2LlfWPgU04xyI="
-     crossorigin=""/>
-     <!-- Custom CSS styles -->
-     <link rel="stylesheet" href="style.css">
-     <title>Document</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Status Update</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .status-form {
+            margin-bottom: 20px;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            resize: vertical;
+        }
+
+        button {
+            background-color: #1877f2;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #166fe5;
+        }
+    </style>
 </head>
 <body>
-     <div class="container">
-          <div class="sidebar">
-               <h2>Most Wanted People </h2>
-               <ul class="list"></ul>
-          </div>
-          <div id="map"></div>
-     </div>
+    <div class="container">
+        <div id="status-section">
+            <div class="status-form">
+                <h2>Update Today's Status</h2>
+                <textarea id="status-text" rows="4"></textarea>
+                <button onclick="submitStatus()">Submit Status</button>
+            </div>
+            <div id="previous-status"></div>
+        </div>
+    </div>
 
-     <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"
-     integrity="sha256-WBkoXOwTeyKclOHuWtc+i2uENFpDZ9YPdf5Hf+D7ewM="
-     crossorigin=""></script>
-     <script src="cordinates.js"></script>
-     <script src="index.js"></script>
+    <!-- Add Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
+    <script>
+        // Your Firebase configuration
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Daily notification check
+        function checkNotificationTime() {
+            const now = new Date();
+            const targetTime = new Date();
+            targetTime.setHours(16, 0, 0, 0); // 4 PM
+
+            if (now >= targetTime && now.getHours() === 16 && now.getMinutes() === 0) {
+                showNotification("Time to update your daily status!");
+            }
+        }
+
+        // Request notification permission
+        function requestNotificationPermission() {
+            if ("Notification" in window) {
+                Notification.requestPermission().then(permission => {
+                    if (permission === "granted") {
+                        console.log("Notification permission granted.");
+                    }
+                });
+            }
+        }
+
+        // Show notification
+        function showNotification(message) {
+            if (Notification.permission === "granted") {
+                new Notification(message);
+            }
+        }
+
+        // Check time every minute
+        setInterval(checkNotificationTime, 60000);
+
+        // Status submission
+        function submitStatus() {
+            const statusText = document.getElementById('status-text').value;
+
+            if (statusText.trim()) {
+                db.collection('statuses').add({
+                    text: statusText,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                }).then(() => {
+                    alert('Status updated successfully!');
+                    document.getElementById('status-text').value = '';
+                    loadPreviousStatus();
+                }).catch(error => {
+                    console.error('Error adding status:', error);
+                });
+            } else {
+                alert("Status cannot be empty!");
+            }
+        }
+
+        // Load previous status
+        function loadPreviousStatus() {
+            db.collection('statuses')
+                .orderBy('timestamp', 'desc')
+                .limit(1)
+                .get()
+                .then(querySnapshot => {
+                    querySnapshot.forEach(doc => {
+                        document.getElementById('previous-status').innerHTML = `
+                            <h3>Last Status:</h3>
+                            <p>${doc.data().text}</p>
+                            <small>${new Date(doc.data().timestamp?.toDate()).toLocaleString()}</small>
+                        `;
+                    });
+                }).catch(error => {
+                    console.error('Error loading status:', error);
+                });
+        }
+
+        // Request permission for notifications on page load
+        requestNotificationPermission();
+
+        // Load previous status on page load
+        loadPreviousStatus();
+    </script>
 </body>
 </html>
